@@ -1,4 +1,5 @@
 import pandas as pd
+import spacy_pipeline
 
 abbreviations_dict = {
     "don’t": "do not",
@@ -69,17 +70,20 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """führt verschiedene Data Cleaning Schritte über den Dataframe des Rick und Morty Datensatzes durch und gibt den gesäuberten Dataframe zurück"""
     # entferne \n (Absätze) und Leerzeichen
     df["dialouge"] = pd.Series( x.replace("\n", " ").replace("  ", "") for x in df["dialouge"])
-
-    # entferne :
-    df["speaker"] = df["speaker"].str.strip(":")
-
     #lowercase
     df['dialouge'] = df["dialouge"].apply(lambda x: x.lower())
 
+    # entferne :
+    df["speaker"] = df["speaker"].apply(lambda x: str(x).replace(":",""))
+
+    #HTML-tags entfernen
+    df["dialouge"] = df["dialouge"].str.replace("<[^>]*>","" , regex=True)
+    df["speaker"] = df["speaker"].str.replace("<[^>]*>","" , regex=True)
+
+    # Abreviations
     # ' -> ’
     df["dialouge"] = pd.Series( x.replace("'", "’")for x in df["dialouge"])
 
-    # Abreviations
     corrected_row = []
     for row in df["dialouge"]:
         for entry in list(abbreviations_dict.keys()):
@@ -92,6 +96,12 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # entferne nicht alphanumerische Zeichen
     df["dialouge"] = df["dialouge"].str.replace("[^\w\s]","" , regex=True)
+    df["speaker"] = df["speaker"].str.replace("[^\w\s]","" , regex=True)
+
+    #Stopwords
+    nlp = spacy_pipeline.get_pipeline()
+    df["dialouge"] = list(nlp.pipe(df["dialouge"]))
+    df["dialouge"] = [ " ".join([t.text for t in row]) for row in df["dialouge"]]
 
     return df
 
